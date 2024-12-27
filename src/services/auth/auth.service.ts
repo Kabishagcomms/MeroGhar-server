@@ -445,30 +445,3 @@ export const forgotPasswordS = async (email: string): Promise<boolean> => {
     throw e;
   }
 };
-
-export const forgotPasswordPatchS = async (token: string): Promise<boolean> => {
-  try {
-    const { userId, Email } = <jwt.verifyEmailPayload>(
-      jwt.verify(token, process.env.mailSecret!)
-    );
-
-    console.log("token verified");
-    //validate userId and Email in db
-    const userValid = await userModel.findOne({ userId, email: Email });
-    if (!userValid)
-      throw new Error("failed to Verify User Invalid user and Email");
-
-    //now generate random password and chnage users password
-    const password = generateRandomPassword(7);
-
-    userValid.password = await hash(password, 8);
-    await userValid.save();
-
-    //now send this new passwor in mail
-
-    return true;
-  } catch (e) {
-    console.log(e);
-    throw e;
-  }
-};
