@@ -1,20 +1,20 @@
 openapi: 3.0.0
 info:
-    title: "MeroGhar API"
-    description: "Documentation for the MeroGhar API"
-    version: 3.0.0
-    basePath: "http://localhost:2900"
-    schemas:
-        - http
-        - https
+  title: "MeroGhar API"
+  description: "Documentation for the MeroGhar API"
+  version: 3.0.0
+  basePath: "http://localhost:2900"
+  schemas:
+    - http
+    - https
 
 # component portion defined the main portion of the api documentation
 components:
   securitySchemes:
     bearerAuth:
-     type: http
-     scheme: bearer
-     bearerFormat: JWT
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 paths:
   /auth/v1/registerUser:
     post:
@@ -41,7 +41,7 @@ paths:
                 password:
                   type: string
                   description: Password of the user
-                
+
       responses:
         200:
           description: Successful response
@@ -84,7 +84,7 @@ paths:
   /brand/v1/createBrand:
     post:
       security:
-       - bearerAuth: []
+        - bearerAuth: []
       response:
       200:
         description: OK
@@ -105,7 +105,6 @@ paths:
                   type: string
                   description: Company of the brand
 
-                     
       responses:
         200:
           description: Successful response
@@ -115,29 +114,29 @@ paths:
         - Brand
   /brand/v1/getBrand/:id:
     get:
-     security:
-       - bearerAuth: []
-     response:
-      200:
-        description: OK
+      security:
+        - bearerAuth: []
+      response:
+        200:
+          description: OK
     requestBody:
-       required: true
-       content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  :id:
-                    type: string
-                    description: ID of the brand
-       responses:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              :id:
+                type: string
+                description: ID of the brand
+      responses:
         200:
           description: Successful response
         400:
           description: Invalid input
     tags:
-     - Brand
-      
+      - Brand
+
   /brand/v1/updateBrand/{id}:
     patch:
       description: Update a brand by ID
@@ -212,7 +211,7 @@ paths:
   /medicine/v1/createMedicine:
     post:
       security:
-       - bearerAuth: []
+        - bearerAuth: []
       response:
       200:
         description: OK
@@ -229,7 +228,7 @@ paths:
                 brand:
                   type: string
                   description: Brand of the medicine
-                basic :
+                basic:
                   type: object
                   properties:
                     usagePharmacologicCategory:
@@ -268,7 +267,7 @@ paths:
                     drugInteractions:
                       type: string
                       description: Description of the basic
-        
+
       responses:
         200:
           description: Successful response
@@ -278,14 +277,14 @@ paths:
         - Medicine
   /medicine/v1/getMedicine/:id:
     get:
-     security:
-       - bearerAuth: []
-     response:
-      200:
-        description: OK
-      requestBody:
-       required: true
-       content:
+      security:
+        - bearerAuth: []
+      response:
+        200:
+          description: OK
+        requestBody:
+          required: true
+          content:
             application/json:
               schema:
                 type: object
@@ -293,18 +292,18 @@ paths:
                   :id:
                     type: string
                     description: ID of the medicine
-      responses:
-        200:
-          description: Successful response
-        400:
-          description: Invalid input
+        responses:
+          200:
+            description: Successful response
+          400:
+            description: Invalid input
     tags:
-     - Medicine
-  
+      - Medicine
+
   /medicine/v1/updateMedicine/{id}:
     patch:
       security:
-       - bearerAuth: []
+        - bearerAuth: []
       description: Update a medicine by ID
       parameters:
         - in: path
@@ -326,7 +325,7 @@ paths:
                 brand:
                   type: string
                   description: Brand of the medicine
-                basic :
+                basic:
                   type: object
                   properties:
                     usagePharmacologicCategory:
@@ -376,7 +375,7 @@ paths:
   /medicine/v1/deleteMedicine/{id}:
     delete:
       security:
-       - bearerAuth: []
+        - bearerAuth: []
       description: Delete a medicine by ID
       parameters:
         - in: path
@@ -392,11 +391,11 @@ paths:
           description: Invalid input
       tags:
         - Medicine
-        
+
   /medicine/v1/getMedicine:
     get:
       security:
-       - bearerAuth: []
+        - bearerAuth: []
       description: Get all medicines
       responses:
         200:
@@ -415,7 +414,7 @@ paths:
                   brand:
                     type: string
                     description: Brand of the medicine
-                  basic :
+                  basic:
                     type: object
                     properties:
                       usagePharmacologicCategory:
@@ -462,7 +461,7 @@ paths:
   /medicine/v1/getMedicineNames:
     get:
       security:
-       - bearerAuth: []
+        - bearerAuth: []
       description: Get all medicines
       responses:
         200:
