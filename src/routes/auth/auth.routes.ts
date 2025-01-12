@@ -4,7 +4,6 @@ import {
   LoginC,
   refreshTokenC,
   googleLoginC,
-  forgotPasswordPatchC,
   facebookLoginC,
   logOutC,
   forgotPasswordC,
