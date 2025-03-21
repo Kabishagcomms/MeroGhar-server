@@ -5,7 +5,9 @@ import { bookingModel } from "../../models/booking";
 import paymentModel from "../../models/payment";
 import { propertyModel } from "../../models/property";
 import { userModel } from "../../models/user";
+
 import { sendMail } from "../../utils/zohoMailer";
+import { createNotificationS } from "../notification/notification.service";
 
 export const checkBookingS = async (
   propId: string,
@@ -104,10 +106,32 @@ export const postBookingS = async (
     await newBooking.save();
     if (!newPayment) throw new Error("failed to store Payment Information");
 
+      
+
+
     //send mail with billing
+    // After successful booking and payment creation
     const user = await userModel.findOne({ _id: newBooking.userId });
     const host = await userModel.findOne({ _id: checkProperty.userId });
 
+    // Create notifications
+    await createNotificationS(
+      userId,
+      `Your booking for ${checkProperty.name} has been confirmed. Check-in date: ${startDate ? new Date(startDate).toLocaleDateString() : 'Not specified'}`,
+      'booking',
+      newBooking._id.toString(),
+      'Booking'
+    );
+
+    await createNotificationS(
+      checkProperty.userId.toString(),
+      `New booking received for ${checkProperty.name} by ${user!.userName}. Check-in date: ${startDate ? new Date(startDate).toLocaleDateString() : 'Not specified'}`,
+      'booking',
+      newBooking._id.toString(),
+      'Booking'
+    );
+
+    // Send emails
     const usermail = sendMail(
       userBookingTemplate(
         user!.userName,
@@ -118,6 +142,7 @@ export const postBookingS = async (
         checkProperty.images[0].imgUrl
       )
     );
+    
     const hostmail = sendMail(
       userBookingTemplate(
         user!.userName,

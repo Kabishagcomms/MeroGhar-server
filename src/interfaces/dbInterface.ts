@@ -55,7 +55,18 @@ interface kycSchema{
     updatedAt: Date;
     
  }
- 
+
+ export interface INotification {
+  _id: string
+  userId: string
+  message: string
+  type: 'booking' | 'system' | 'payment' | 'review'
+  isRead: boolean
+  relatedId?: string // Could be bookingId, propertyId, etc.
+  createdAt: Date
+  updatedAt: Date
+
+ }
 
  export interface Property{
     _id: Types.ObjectId;

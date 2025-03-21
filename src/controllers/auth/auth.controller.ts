@@ -1,11 +1,18 @@
 //this controller will contain necessary request handler for authentication and authorization
 
 import { NextFunction, Request, Response } from "express";
+import { 
+  signupMailTemplate, 
+  forgotPasswordTemplate, 
+  forgotPasswordPatchTemplate 
+} from "../../configs/mailtemplate";
+import { sendMail } from "../../utils/zohoMailer";
 import {
   registerUserS,
   LoginS,
   verifyRefreshTokenS,
   googleLoginS,
+  forgotPasswordPatchS,
   facebookLoginS,
   logOutS,
   forgotPasswordS,
@@ -24,16 +31,37 @@ dotenv.config();
 
 export const registerUserC = async (req: Request, res: Response) => {
   try {
-    const { userId, password } = req.body;
+    const { userId, password, email } = req.body;
     console.log("inside register user controller");
-    const newUser = await registerUserS(userId, password);
-    if (newUser)
+    
+    // Check if email is provided
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Email is required for registration" 
+      });
+    }
+    
+    const newUser = await registerUserS(userId, password, email);
+    
+    if (newUser) {
+      // Send welcome email
+      try {
+        const mailTemplate = signupMailTemplate(userId, email);
+        await sendMail(mailTemplate);
+        console.log("Welcome email sent to:", email);
+      } catch (emailErr) {
+        console.error("Failed to send welcome email:", emailErr);
+        // Continue with registration even if email fails
+      }
+      
       return res
         .status(200)
         .json({
           success: true,
           message: `user ${userId} successfully registered`,
         });
+    }
 
     return res
       .status(409)
@@ -44,10 +72,10 @@ export const registerUserC = async (req: Request, res: Response) => {
 };
 
 export const LoginC = async (req: Request, res: Response) => {
-  const { userId, password } = req.body;
+  const { credential, password } = req.body;
   try {
     const { success, accessToken, refreshToken, user } = await LoginS(
-      userId,
+      credential,
       password
     );
 
@@ -68,8 +96,6 @@ export const LoginC = async (req: Request, res: Response) => {
         .status(200)
         .send({ success: true, message: "user successfully logged in", user });
     }
-
-    //now attach the token to cookie and send it to clien
   } catch (e: any) {
     {
       console.log(e);
@@ -228,3 +254,14 @@ export const forgotPasswordC = async (req: Request, res: Response) => {
     res.status(400).json({ success: false, error: e.message });
   }
 };
+
+export const forgotPasswordPatchC=async(req:Request,res:Response)=>{
+  try{
+      const passwordChanged=await forgotPasswordPatchS(req.params.token);
+      if(!passwordChanged) res.status(400).json({success:false,error:"Invalid Input Failed to Verify Email"});
+      res.status(200).redirect('https://localhost:3000/Home')
+  }catch(e:any){
+      console.log(e)
+      res.status(400).json({success:false,error:e.message});
+  }
+}

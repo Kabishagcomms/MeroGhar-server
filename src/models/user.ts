@@ -10,6 +10,10 @@ export const userSchema = new Schema(
       required: true,
       unique: true,
     },
+    email: {
+      type: String,
+      required: true,
+     },
     //usename in default can be user id and acts as display name
     userName: {
       type: String,
@@ -35,10 +39,7 @@ export const userSchema = new Schema(
     },
 
     //can be manually updated or if user logs in with google then it will be updated automatically
-    email: {
-      mail: { type: String, default: "" },
-      isVerified: { type: Boolean, default: false },
-    },
+   
 
     //since i will be usig jwt for most of the verificaion purpose rather than generate own token
     token: String,

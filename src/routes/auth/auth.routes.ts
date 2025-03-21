@@ -4,11 +4,12 @@ import {
   LoginC,
   refreshTokenC,
   googleLoginC,
+  forgotPasswordPatchC,
   facebookLoginC,
   logOutC,
   forgotPasswordC,
 } from "../../controllers/auth/auth.controller";
-import { validateInput } from "../../middlewares/inputvalidation";
+import { validateInput, signInValidateInput } from "../../middlewares/inputvalidation";
 import dbConnect from "../../configs/db";
 import passport from "passport";
 
@@ -17,7 +18,7 @@ import "../../configs/strategy";
 const router = Router();
 
 router.post("/registerUser", validateInput, registerUserC);
-router.post("/login", validateInput, LoginC);
+router.post("/login", signInValidateInput, LoginC);
 
 //since we are using token instead of session false
 router.get(
@@ -45,7 +46,8 @@ router.get(
 );
 
 //reset password/forgot password
-//router.post("/forgotPassword/:email", forgotPasswordC);
+router.post('/forgotPassword/:email',forgotPasswordC)
+router.get('/forgotPasswordPatch/:token',forgotPasswordPatchC)
 //router.get("/forgotPasswordPatch/:token", forgotPasswordPatchC);
 
 //userVerification + Token rotation

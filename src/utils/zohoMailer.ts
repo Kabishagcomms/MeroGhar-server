@@ -14,18 +14,20 @@ const transporter = createTransport({
   },
 });
 
-export const sendMail = (mailOptions: mailBody): boolean => {
+export const sendMail = async (mailOptions: mailBody): Promise<boolean> => {
   try {
-    transporter.sendMail(mailOptions, (err, info) => {
-      if (err) {
-        console.log(err);
-      } else {
-        console.log("mail send succesfully using zoho ");
-      }
-    });
+    // Validate email recipient
+    if (!mailOptions.to) {
+      console.error("Mail send failed: No recipient defined");
+      return false;
+    }
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Mail sent successfully using Zoho");
     return true;
   } catch (e) {
-    console.log("Maid send failed");
-    throw e;
+    console.error("Mail send failed:", e);
+    // Return false instead of throwing the error
+    return false;
   }
 };

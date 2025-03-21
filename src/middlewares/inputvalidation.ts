@@ -11,6 +11,7 @@ export const validateInput=async(req:Request,res:Response,next:NextFunction)=>{
             userId:joi.string().required(),
             // Minimum six characters, at least one uppercase letter, one lowercase letter, one number and one special character:
             password:joi.string().required(),
+            email: joi.string().email().required()
             // .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$'))
         })
 
@@ -245,6 +246,26 @@ export const validateReviewUpdate=async(req:Request,res:Response,next:NextFuncti
         next()
 
     }catch(err){
+        return res.status(400).json(err)
+    }
+}
+
+
+export const signInValidateInput = async(req: Request, res: Response, next: NextFunction) => {
+    try {
+        const signInSchema = joi.object({
+            // Allow either userId or email
+            credential: joi.string().required(),
+            password: joi.string().required()
+        })
+
+        const { error, value } = signInSchema.validate(req.body, { abortEarly: false })
+        if (error) return res.status(400).json({ success: false, message: error.message })
+        
+        console.log(value)
+        next()
+
+    } catch (err) {
         return res.status(400).json(err)
     }
 }

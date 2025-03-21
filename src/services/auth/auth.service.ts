@@ -9,23 +9,31 @@ declare module "jsonwebtoken" {
   }
 }
 
+// Add this interface for email verification
+interface verifyEmailPayload extends jwt.JwtPayload {
+  userId: string;
+  Email: string;
+}
+
+import { generateRandomPassword } from "../../utils/random";
 import * as jwt from "jsonwebtoken";
 import { hash, compare } from "bcrypt";
+import { forgotPasswordTemplate, forgotPasswordPatchTemplate } from "../../configs/mailtemplate";
 import * as dotenv from "dotenv";
 import { LSR1, refreshTService } from "../../interfaces/Auth";
 import { googleProfile } from "../../interfaces/Auth";
 import { generateTokens } from "../../utils/token";
 
 import { Types } from "mongoose";
-import { generateRandomPassword } from "../../utils/random";
-
+import { sendMail } from "../../utils/zohoMailer"
 //*********************************** */
 dotenv.config();
 // *******************************register user service************************************
 
 export const registerUserS = async (
   userId: string,
-  password: string
+  password: string,
+  email: string,
 ): Promise<boolean> => {
   try {
     console.log("registerService", userId);
@@ -36,8 +44,9 @@ export const registerUserS = async (
     const newUser = await userModel.create({
       userId: userId,
       userName: userId,
+      email: email,
       password: await hash(password, 8),
-      profile_Img: {
+      profileImg: {
         imgId: "",
         imgUrl: "",
       },
@@ -55,33 +64,41 @@ export const registerUserS = async (
 //define type of data this function is going to return
 
 export const LoginS = async (
-  userId: string,
+  credential: string,
   password: string
 ): Promise<LSR1> => {
   try {
     console.log("inside login service");
+    
+    // Check if credential is email (contains @) or userId
+    const isEmail = credential.includes('@');
+    
+    // Find user by either userId or email
     const foundUser = await userModel.findOne({
-      userId,
+      $or: [
+        { userId: credential },
+        { email: isEmail ? credential : null }
+      ],
       "isBanned.status": false,
     });
-    if (!foundUser) throw new Error("valid User Not Found");
-    //if string variable does not take Strig\undefined then use ! to tell typescript that it will not be undefined
+    
+    if (!foundUser) throw new Error("User not found");
+    
     const verifiedUser = await compare(password, foundUser.password!);
-    if (!verifiedUser) throw new Error("Invalid User Credentials");
+    if (!verifiedUser) throw new Error("Invalid credentials");
 
-    //since user is been verfied
+    // Generate tokens
     const { accessToken, refreshToken } = await generateTokens(
       foundUser._id.toString(),
-      userId,
+      foundUser.userId,
       foundUser.is_Admin,
       foundUser.kyc.isVerified
     );
 
-    //now append refresh token to userdocument
+    // Store refresh token
     const tokenStored = await foundUser.refreshToken.push(refreshToken);
     await foundUser.save();
 
-    //throw error or return false
     if (!tokenStored) throw new Error("Token storage failed");
 
     return {
@@ -89,7 +106,7 @@ export const LoginS = async (
       accessToken,
       refreshToken,
       user: {
-        userId,
+        userId: foundUser.userId,
         docId: foundUser._id,
         is_Admin: foundUser.is_Admin,
         img: foundUser.profileImg.imgUrl,
@@ -418,10 +435,9 @@ export const forgotPasswordS = async (email: string): Promise<boolean> => {
   try {
     const emailExist = await userModel
       .findOne({
-        "email.mail": email,
-        "email.isVerified": true,
+        email: email,
         password: { $ne: "" },
-        userId: { $ne: email },
+        userId: { $ne: email }, // Ensures it's not a social login user
       })
       .exec();
     if (!emailExist) throw new Error("Invalid Email/Email Does not Exist!!!");
@@ -438,6 +454,7 @@ export const forgotPasswordS = async (email: string): Promise<boolean> => {
     );
 
     //function to send mail
+    sendMail(forgotPasswordTemplate(email,token))
 
     return true;
   } catch (e) {
@@ -445,3 +462,29 @@ export const forgotPasswordS = async (email: string): Promise<boolean> => {
     throw e;
   }
 };
+
+export const forgotPasswordPatchS = async(token: string): Promise<boolean> => {
+  try {
+    // Change this line to use the local interface
+    const {userId, Email} = <verifyEmailPayload>jwt.verify(token, process.env.mailSecret!);
+
+    console.log('token verified')
+    //validate userId and Email in db 
+    const userValid = await userModel.findOne({userId, email: Email});
+    if(!userValid) throw new Error("failed to Verify User Invalid user and Email");
+    
+    //now generate random password and change users password
+    const password = generateRandomPassword(7);
+
+    userValid.password = await hash(password, 8);
+    await userValid.save();
+
+    //now send this new password in mail - using email directly as it's a string now
+    sendMail(forgotPasswordPatchTemplate(Email, password));
+    return true;
+
+  } catch(e) {
+    console.log(e);
+    throw e;
+  }
+}

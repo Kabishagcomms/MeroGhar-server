@@ -2,7 +2,8 @@ import { userModel } from "../../models/user";
 import { hash } from "bcrypt";
 import { IBooking, IUser, Property } from "../../interfaces/dbInterface";
 import { verifyKyc } from "../../interfaces/admin";
-
+import { bookingModel } from "../../models/booking";
+import { propertyModel } from "../../models/property";
 import { sendMail } from "../../utils/zohoMailer";
 import {
   adminPropTemplate,
@@ -14,13 +15,73 @@ import {
 interface Dash {
   totalUsers: number;
   activeUsers: number;
+  totalProperties:number,
+  activeProperties:number,
+  totalBookings:number,
+  activeBookings:number,
+  properties:Partial<Property>[]
 }
+
+export const banUnbanPropertyS=async(id:string,ban:boolean,message?:string)=>{
+  try{
+
+      const propertyExist=await propertyModel.findOne({_id:id,'isVerified.status':true});
+      if(!propertyExist) throw new Error("User Does not Exist");
+
+      //get host information 
+      const host=await userModel.findOne({_id:propertyExist.userId});
+      if(!host) throw new Error("No Host for the property")
+
+      if(ban){
+          propertyExist.isBanned.status=true;
+          propertyExist.isBanned.message=message!;
+          await propertyExist.save()
+
+          //send mail 
+          if(host.email.isVerified){
+              const mail =sendMail(banUnbanPropTemplate(host.userName,host.email.mail,true,id,propertyExist.images[0].imgUrl,message))
+          }
+         
+
+          //should i also freeze booking
+
+
+          return true;
+      }
+
+          propertyExist.isBanned.status=false;
+          propertyExist.isBanned.message='';
+          await propertyExist.save()
+
+          if(host.email.isVerified){
+              const mail =sendMail(banUnbanPropTemplate(host.userName,host.email.mail,false,id,propertyExist.images[0].imgUrl,message))
+          }
+        
+
+          //also freeze ban all bookings
+
+          // const banBookings=await bookingModel.findOneAndUpdate({})
+
+          return true;
+
+
+  }catch(e){
+      console.log(e);
+      throw e;
+  }
+}
+
 
 export const getDashBoardDataS = async (): Promise<Dash> => {
   try {
-    const [totalUsers, activeUsers] = await Promise.all([
+    const [totalUsers, activeUsers, totalProperties,activeProperties, totalBookings,activeBookings,properties] = await Promise.all([
       userModel.countDocuments({ is_Admin: false }),
       userModel.countDocuments({ "isBanned.status": false, is_Admin: false }),
+      propertyModel.countDocuments({}),
+      propertyModel.countDocuments({'isBanned.status':false,'isVerified.status':true}),
+      bookingModel.countDocuments({}),
+      bookingModel.countDocuments({status:{ $nin: ['ownerCancelled', 'tenantCancelled'] }}),
+      propertyModel.find({'isBanned.status':false}).select("_id userId images name rate ratingCount tennants").populate('userId','_id userName').sort({avgRating:-1,ratingCount:-1})
     ]);
 
     //
@@ -28,6 +89,11 @@ export const getDashBoardDataS = async (): Promise<Dash> => {
     return {
       totalUsers,
       activeUsers,
+      totalProperties,
+      activeProperties,
+      totalBookings,
+      activeBookings,
+      properties
     };
   } catch (e) {
     console.log(e);
@@ -66,6 +132,116 @@ export const getAllUserS = async (
     throw e;
   }
 };
+
+export const getAllPropertiesS=async(page:string,limit:string,search?:string):Promise<Property[]>=>{
+  try{
+
+      if(search! !==''){
+          const properties=await propertyModel.find({name:{$regex:search,$options:'i'},'isVerified.status':true}).select('name userId images avgRating isBanned').populate('userId','userName _id profileImg').sort({createdAt:-1,avgRating:-1 ,ratingCount:-1});
+          return properties;
+      }
+
+      
+      const newlimit=parseInt(limit)
+      const newpage=parseInt(page)
+
+      //since all admin have access to this simply fetch unverified property set in pending  .limit(newlimit*1).skip((newpage-1)*newlimit).sort({userId:"asc"}).
+      const properties=await propertyModel.find({'isVerified.status':true}).select('name userId images avgRating isBanned').populate('userId','userName _id profileImg').sort({createdAt:-1,userName:'asc',avgRating:-1 ,ratingCount:-1}).skip((newpage-1)*newlimit).limit(newlimit*1);
+      if(!properties) throw new Error("No properties Found")
+      return properties
+
+  }catch(e){
+      console.log(e)
+      throw e
+  }
+}
+
+export const getAllBookingS=async(page:string,limit:string):Promise<IBooking[]>=>{
+  try{
+
+      const newlimit=parseInt(limit)
+      const newpage=parseInt(page)
+
+      const reservations=await bookingModel.find({}).skip((newpage! - 1) * newlimit!)
+      .limit(newlimit!).populate('propertyId','name _id images avgRating').populate('paymentId').populate('userId','_id userName profileImg').populate('hostId','_id userName profileImg').sort({createdtAt:-1}).exec()
+      if(!reservations) throw new Error("Failed to Fetch reservation");
+      return reservations;
+
+  }catch(e){
+      console.log(e)
+      throw e
+  }
+}
+
+
+export const getPropertyRequestsS=async(page:string,limit:string):Promise<Property[]>=>{
+  try{
+      //since all admin have access to this simply fetch unverified property set in pending
+      const newLimit=parseInt(limit);
+      const newPage=parseInt(page) 
+      const propertyRequests=await propertyModel.find({'isVerified.status': false, 'isVerified.pending': true}).select('-tennants ').limit(newLimit*1).skip((newPage-1)*newLimit).sort({userId:"asc"})
+      if(!propertyRequests) throw new Error("No property to be verified right now")
+      return propertyRequests
+
+  }catch(e){
+      console.log(e)
+      throw e;
+  }
+
+}
+
+export const verifyPropertyRequestsS=async(adminId:string,propertyId:string,status:boolean,message:string):Promise<boolean>=>{
+  try{
+
+      //if kyc is to be unverifed just update the document 
+      if(!status){
+          const declineProperty=await propertyModel.findOneAndUpdate({_id:propertyId},{
+              "$set":{
+                  "isVerified.status":status,
+                  "isVerified.pending":false,
+                  "isVerified.message":message,
+                  "isVerified.approvedBy":adminId
+              }},{new:true})
+
+          if(!declineProperty) throw new Error("Property decline failed");
+          
+          const user=await userModel.findOne({_id:declineProperty.userId});
+          const notify=sendMail(adminPropTemplate(user!.userName,user!.email.mail,false,declineProperty.name,declineProperty.images[0].imgUrl,message))
+
+          return true;
+      }
+
+      
+      const verifyProperty=await propertyModel.findOneAndUpdate({_id:propertyId},{
+          "$set":{
+              "isVerified.status":status,
+              "isVerified.pending":false,
+              "isVerified.message":'',
+              "isVerified.approvedBy":adminId,
+              
+          }},{new:true})
+
+      if(!verifyProperty) throw new Error("Property verification failed");
+      
+      const user=await userModel.findOne({_id:verifyProperty.userId});
+      const notify=sendMail(adminPropTemplate(user!.userName,user!.email.mail,true,verifyProperty.name,verifyProperty.images[0].imgUrl))
+
+          
+      //increase the property post count for user
+        const updateCount=await userModel.updateOne({userId:verifyProperty.userId},{
+          "$inc":{
+              listingCount:1
+          }
+        })
+
+        if(!updateCount) throw new Error("Property verified but failed to update user posting count")
+      return true;
+
+  }catch(e){
+      console.log(e);
+      throw e;
+  }
+}
 
 export const banUnbanUserS = async (
   id: string,

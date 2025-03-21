@@ -35,6 +35,7 @@ app.use(
       "https://fyp-mero-ghar.vercel.app",
       "https://fyp-sever.onrender.com",
       "http://localhost:3000",
+      "http://localhost:3001"
     ],
     //headers can be accessed and modified else cant
     credentials: true,
